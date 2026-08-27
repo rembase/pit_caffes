@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:,">
+    <title>Internet Cafe-urile anilor 2000 în Pitești - Google Maps</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { display: flex; height: 100vh; background-color: #121212; color: #fff; overflow: hidden; }
+        
+        #sidebar { width: 30%; height: 100vh; overflow-y: auto; padding: 20px; background: #1a1a1a; border-right: 2px solid #00ff66; z-index: 99; }
+        #map { width: 70%; height: 100vh; background-color: #1b1b1b; }
+        
+        h1 { font-size: 22px; margin-bottom: 10px; color: #00ff66; text-transform: uppercase; letter-spacing: 1px; }
+        p.subtitle { font-size: 13px; color: #aaa; margin-bottom: 20px; }
+        
+        .locatie-item { background: #2a2a2a; padding: 15px; margin-bottom: 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; border-left: 4px solid #333; }
+        .locatie-item:hover { background: #3a3a3a; border-left-color: #00ff66; }
+        .locatie-name { font-weight: bold; font-size: 16px; color: #fff; margin-bottom: 5px; }
+        .locatie-detalii { font-size: 13px; color: #bbb; }
+        
+        .popup-continut { padding: 5px; color: #333; }
+        .popup-continut h3 { color: #111; margin-bottom: 5px; font-size: 16px; }
+        .popup-continut p { font-size: 13px; color: #555; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h1>NetCafé Pitești 2000s</h1>
+        <p class="subtitle">Aplicație securizată. Rulare prin Node.js local.</p>
+        <div id="lista-locatii"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+        // === FIX DEFINITIV: Metoda oficială Google Maps API Loader ===
+        // IMPORTANT: Înlocuiește AIzaSy-ExempluDeCheieReală cu API Key-ul tău din Google Cloud Console.
+        // Fără o cheie de API validă, scripturile sunt blocate la nivel de server.
+        const GOOGLE_MAPS_API_KEY = "AIzaSyDBiXqRM3nZFu702ejO1M1qHv0HN4sTpo4";
+
+    
+
+        // Inițializare asincronă ghidată prin Promise direct din domeniul corect Google Maps
+        function loadGoogleMapsScript() {
+            return new Promise((resolve, reject) => {
+                if (window.google && window.google.maps) {
+                    resolve(window.google.maps);
+                    return;
+                }
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&loading=async`;
+                script.async = true;
+                script.defer = true;
+                script.onload = () => {
+                    if (window.google && window.google.maps) {
+                        resolve(window.google.maps);
+                    } else {
+                        reject(new Error("Librăria Google Maps nu s-a putut inițializa în ferestră."));
+                    }
+                };
+                script.onerror = () => reject(new Error("Eroare de rețea la descărcarea scriptului Google Maps."));
+                document.head.appendChild(script);
+            });
+        }
+
+        // Funcție globală obligatorie pentru a prinde momentul când scriptul de bază a sosit
+function initMapCallback() {
+    window.dispatchEvent(new Event('GoogleMapsScriptIncarcat'));
+}
+
+// 1. Injectarea scriptului de bootstrap oficial
+(function() {
+    const script = document.createElement('script');
+    const GOOGLE_MAPS_API_KEY = "AIzaSyDBiXqRM3nZFu702ejO1M1qHv0HN4sTpo4"; // <-- Pune cheia ta reală aici
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMapCallback&loading=async`;
+    script.defer = true;
+    document.head.appendChild(script);
+})();
+
+// Baza de date cu locațiile din Pitești
+const locatii = [
+    // =========================================================================
+    // CARTIERUL GĂVANA & NORD (RECALIBRATE DUPĂ ANCORA NUCU - BĂLCESCU 157)
+    // =========================================================================
+    {
+        nume: "Nucu SRL - Săli Arcade (Anii '90)",
+        Coordonate: { lat: 44.875908, lng: 24.845244 },
+        zona: "Găvana / Bulevardul Nicolae Bălcescu 157",
+        descriere: "Punctul de referință. Sediul istoric al aparatelor cu fise și manete (Mortal Kombat, Cadillacs and Dinosaurs), chiar la parterul blocurilor turn de la bulevard."
+    },
+    {
+        nume: "NetZone Găvana Complex",
+        Coordonate: { lat: 44.880400, lng: 24.842100 },
+        zona: "Găvana 3 / În spatele Complexului",
+        descriere: "Sală legendară mutată pe poziția reală în spatele complexului din Găvana 3, în vecinătatea punctului termic dintre blocuri."
+    },
+    {
+        nume: "Găvana WebStation (Alprom)",
+        Coordonate: { lat: 44.882100, lng: 24.838500 },
+        zona: "Găvana 3 / Zona Alprom",
+        descriere: "Repoziționată exact la intersecția principală unde se deschide drumul spre Alprom, la capătul Găvanei."
+    },
+    {
+        nume: "Portal Net Găvana 2",
+        Coordonate: { lat: 44.873200, lng: 24.846500 },
+        zona: "Găvana 2 / Parter de bloc",
+        descriere: "Sală calibrată pe zona comercială de la parterul blocurilor din Găvana 2, faimoasă pentru sesiunile lungi de Diablo II."
+    },
+    {
+        nume: "EuroNet Spitalul Județean",
+        Coordonate: { lat: 44.871155, lng: 24.847167 },
+        zona: "Zona Spitalului / Coborâre",
+        descriere: "Coordonate de precizie milimetrică la intersecția străzii spitalului cu Bulevardul Nicolae Bălcescu, chiar la coborârea spre Nord."
+    },
+    {
+        nume: "AsNet Găvana 1",
+        Coordonate: { lat: 44.871200, lng: 24.844800 },
+        zona: "Găvana 1 / Interior",
+        descriere: "Sală mică poziționată stabil în nucleul interior al blocurilor din Găvana 1, în spatele liniei principale de la stradă."
+    },
+    {
+        nume: "SpeedNet Nicolae Bălcescu",
+        Coordonate: { lat: 44.869100, lng: 24.850500 },
+        zona: "Bulevardul Nicolae Bălcescu / Urcare",
+        descriere: "Poziționată la parterul blocurilor turn din zona de urcare dinspre Nord, unde începe panta spre cartier."
+    },
+    {
+        nume: "Club 2000 (Net2000)",
+        Coordonate: { lat: 44.866100, lng: 24.851500 },
+        zona: "Complexul Nord (Granița Găvana)",
+        descriere: "Rămâne fixată pe clădirea comercială centrală din Complexul Nord, nodul clasic de chiul de la ore."
+    },
+
+    // =========================================================================
+    // CENTRU, MOBILĂ & CALEA BUCUREȘTI
+    // =========================================================================
+    {
+        nume: "Turtles NetCafé",
+        Coordonate: { lat: 44.857200, lng: 24.869100 },
+        zona: "Centru / Zona Pasaj",
+        descriere: "Poziție stabilă în zona pietonală din Centru, epicentrul comunității mIRC."
+    },
+    {
+        nume: "Săgeata (The Arrow)",
+        Coordonate: { lat: 44.858400, lng: 24.867500 },
+        zona: "Centru / În spatele Teatrului Davila",
+        descriere: "Poziționată chiar în spatele clădirii Teatrului Alexandru Davila, templul piteștean al Counter-Strike-ului."
+    },
+    {
+        nume: "Target Gaming Lounge",
+        Coordonate: { lat: 44.861100, lng: 24.863200 },
+        zona: "Bulevardul Republicii / Zona Mobilă",
+        descriere: "Localizată pe Republicii în zona Mobilă, configurată special pentru meciuri competitive 5v5."
+    },
+    {
+        nume: "Escape Internet & Games",
+        Coordonate: { lat: 44.853200, lng: 24.878500 },
+        zona: "Calea București / Zona ICIL",
+        descriere: "Amplasată pe Calea București, în nodul fostului ICIL, renumită pentru pachetele de noapte masive."
+    },
+    {
+        nume: "Matrix Net",
+        Coordonate: { lat: 24.84969347183907, lng: 44.86969077193125},
+        zona: "Calea București / Spitalul Militar",
+        descriere: "Poziționată aproape de Spitalul Militar, hub istoric pentru jucătorii de strategii în rețea."
+    },
+    {
+    nume: "Garajul cu Duke Nukem (Anii '90)",
+    Coordonate: { lat: 44.864708, lng: 24.856956 },
+    zona: "Strada Mircea Eliade, nr. 20",
+    descriere: "Sală clandestină embrionară, amenajată în garajul unei case de pe strada Mircea Eliade. Avea doar 3-4 calculatoare vechi (generația 486/Pentium I) legate prin cabluri coaxiale fragile. Ne strângeam la jumătatea anilor '90 pentru meciuri în rețea de Duke Nukem 3D, Doom II și Blood, rulate direct din DOS."
+}
+
+];
+
+// 2. Inițializarea hărții folosind noul standard asincron importLibrary
+window.addEventListener('GoogleMapsScriptIncarcat', async () => {
+    try {
+        // Importăm librăriile necesare conform documentației Google din 2026
+        const { Map } = await google.maps.importLibrary("maps");
+        const { Marker } = await google.maps.importLibrary("marker");
+
+        // Crearea hărții (Acum constructorul Map este garantat disponibil)
+        const map = new Map(document.getElementById("map"), {
+            center: { lat: 44.8565, lng: 24.8697 },
+            zoom: 14,
+            styles: [
+                { "elementType": "geometry", "stylers": [{ "color": "#212121" }] },
+                { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] },
+                { "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] },
+                { "elementType": "labels.text.stroke", "stylers": [{ "color": "#212121" }] },
+                { "featureType": "road", "elementType": "geometry.fill", "stylers": [{ "color": "#2c2c2c" }] },
+                { "featureType": "water", "elementType": "geometry.fill", "stylers": [{ "color": "#000000" }] }
+            ]
+        });
+        // Funcție specială pentru identificarea coordonatelor exacte din Pitești
+map.addListener("click", (mapsMouseEvent) => {
+    const coordonateMici = mapsMouseEvent.latLng.toJSON();
+    
+    // Printează coordonatele direct în Consola Browserului (F12)
+    console.log("Coordonate noi detectate:", coordonateMici);
+    
+    // Afișează un pop-up rapid pe ecran ca să le poți copia instant
+    alert("Latitudine: " + coordonateMici.lat + "\nLongitudine: " + coordonateMici.lng + "\n\nCopiază-le în cod!");
+});
+
+
+        const listaContainer = document.getElementById("lista-locatii");
+        const infoWindow = new google.maps.InfoWindow();
+
+        locatii.forEach((loc) => {
+            // Generare Marker oficial
+            const marker = new Marker({
+                position: loc.Coordonate,
+                map: map,
+                title: loc.nume
+            });
+
+            const popupContinut = `
+                <div class="popup-continut">
+                    <h3>${loc.nume}</h3>
+                    <p><strong>Zona:</strong> ${loc.zona}</p>
+                    <p>${loc.descriere}</p>
+                </div>
+            `;
+
+            marker.addListener("click", () => {
+                infoWindow.setContent(popupContinut);
+                infoWindow.open(map, marker);
+            });
+
+            // Generare element în Sidebar
+            const item = document.createElement("div");
+            item.className = "locatie-item";
+            item.innerHTML = `
+                <div class="locatie-name">${loc.nume}</div>
+                <div class="locatie-detalii">📍 ${loc.zona}</div>
+            `;
+
+            item.addEventListener("click", () => {
+                map.setZoom(16);
+                map.setCenter(loc.Coordonate);
+                infoWindow.setContent(popupContinut);
+                infoWindow.open(map, marker);
+            });
+
+            listaContainer.appendChild(item);
+        });
+
+    } catch (error) {
+        console.error("Eroare la importul librăriilor Google Maps:", error);
+    }
+});
+    </script>
+</body>
+</html>
