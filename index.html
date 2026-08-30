@@ -1,211 +1,66 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ro">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=1200, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NetCafé Pitești 2000s</title>
-    <link rel="icon" href="data:,">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { display: flex; height: 100vh; background-color: #0c0c0c; color: #fff; overflow: hidden; min-width: 1200px; }        #sidebar { width: 30%; height: 100vh; overflow-y: auto; padding: 25px; background: #111; border-right: 3px solid #00ff66; z-index: 99; }
-        #map { width: 70%; height: 100vh; background-color: #151515; }
-        h1 { font-size: 24px; margin-bottom: 5px; color: #00ff66; text-transform: uppercase; letter-spacing: 2px; }
-        p.subtitle { font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.4; border-bottom: 1px solid #222; padding-bottom: 15px; }
-        #form-container { background: #1a1a1a; padding: 15px; border-radius: 6px; border: 1px dashed #00ff66; margin-bottom: 20px; display: none; }
-        #form-container h2 { font-size: 16px; color: #00ff66; margin-bottom: 10px; text-transform: uppercase; }
-        .form-group { margin-bottom: 10px; }
-        .form-group label { display: block; font-size: 12px; color: #aaa; margin-bottom: 4px; }
-        .form-group input, .form-group textarea { width: 100%; padding: 8px; background: #222; border: 1px solid #444; color: #fff; border-radius: 4px; font-size: 13px; }
-        button { width: 100%; padding: 10px; background: #00ff66; color: #000; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; text-transform: uppercase; }
-        button:hover { background: #00cc55; }
-        .locatie-item { background: #1a1a1a; padding: 14px; margin-bottom: 10px; border-radius: 6px; cursor: pointer; border-left: 4px solid #333; }
-        .locatie-item:hover { background: #222; border-left-color: #00ff66; }
-        .locatie-name { font-weight: bold; font-size: 15px; color: #fff; margin-bottom: 4px; }
-        .locatie-detalii { font-size: 12px; color: #00ff66; }
-        .popup-continut { padding: 5px; color: #222; max-width: 250px; }
-        .popup-continut h3 { color: #111; font-size: 16px; border-bottom: 2px solid #00ff66; padding-bottom: 4px; margin-bottom: 6px; }
-        .popup-continut p { font-size: 13px; color: #444; line-height: 1.4; }
-    </style>
-</head>
-<body>
-    <div id="sidebar">
-        <h1>NetCafé Pitești</h1>
-        <p class="subtitle">Dă click stânga oriunde pe hartă pentru a adăuga o sală în rețea.</p>
-        <div id="form-container">
-            <h2>Adaugă o locație</h2>
-            <form id="cafe-form">
-                <input type="hidden" id="form-lat">
-                <input type="hidden" id="form-lng">
-                <div class="form-group">
-                    <label>Numele Sălii</label>
-                    <input type="text" id="form-nume" placeholder="Ex: Săgeata, Garajul cu Duke" required>
-                </div>
-                <div class="form-group">
-                    <label>Zona / Adresa aproximativă</label>
-                    <input type="text" id="form-zona" placeholder="Ex: Găvana 3, pe Eliade la nr. 20" required>
-                </div>
-                <div class="form-group">
-                    <label>Amintiri / Descriere</label>
-                    <textarea id="form-descriere" rows="3" placeholder="Ce configuratii aveau?" required></textarea>
-                </div>
-                <div class="form-group">
-                    <label style="color: #00ff66; font-weight: bold;">Securitate: Ce program foloseam pentru chat în anii 2000?</label>
-                    <input type="text" id="form-antibot" placeholder="Răspuns din 4 litere" required>
-                </div>
-                <button type="submit">Salvează</button>
-                <button type="button" id="btn-anuleaza" style="background:#444; color:#fff; margin-top:8px;">Anulează</button>
-            </form>
-        </div>
-        <div id="lista-locatii"></div>
-    </div>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <!-- the map conntainer -->
     <div id="map"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
-
-    <script>
-        const GOOGLE_MAPS_API_KEY = "AIzaSyDBiXqRM3nZFu702ejO1M1qHv0HN4sTpo4";
-        const firebaseConfig = {
-            apiKey: "AIzaSyBaBMM59IHHEFGcTmcOcTAsmgonScH0F_8",
-            authDomain: "pitesti-netcafes.firebaseapp.com",
-            projectId: "pitesti-netcafes",
-            storageBucket: "pitesti-netcafes.firebasestorage.app",
-            messagingSenderId: "247244935409",
-            appId: "1:247244935409:web:3780639bb9f9c5cc1b1950",
-            measurementId: "G-ZK82WVM033"
-        };
-
-
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-
-        const locatiiInitiale = []
-        //const locatiiInitiale = [
-        //    { nume: "Nucu SRL - Săli Arcade (Anii '90)", Coordonate: { lat: 44.875908, lng: 24.845244 }, zona: "Găvana / Bulevardul Nicolae Bălcescu 157", descriere: "Sediul istoric al aparatelor cu fise și manete (Mortal Kombat, Cadillacs and Dinosaurs), la parterul blocurilor turn." },
-        //    { nume: "Garajul cu Duke Nukem (Anii '90)", Coordonate: { lat: 44.864708, lng: 24.856956 }, zona: "Strada Mircea Eliade, nr. 20", descriere: "Sală clandestină embrionară în garajul unei case. 3-4 calculatoare vechi legate prin cabluri coaxiale pentru Duke 3D și Doom II în DOS." },
-        //    { nume: "NetZone Găvana Complex", Coordonate: { lat: 44.880400, lng: 24.842100 }, zona: "Găvana 3 / În spatele Complexului", descriere: "Sală legendară mutată pe poziția reală în spatele complexului din Găvana 3, în vecinătatea punctului termic dintre blocuri." },
-        //    { nume: "Găvana WebStation (Alprom)", Coordonate: { lat: 44.882100, lng: 24.838500 }, zona: "Găvana 3 / Zona Alprom", descriere: "Repoziționată exact la intersecția principală unde se deschide drumul spre Alprom, la capătul Găvanei." },
-        //    { nume: "Portal Net Găvana 2", Coordonate: { lat: 44.873200, lng: 24.846500 }, zona: "Găvana 2 / Parter de bloc", descriere: "Sală calibrată pe zona comercială de la parterul blocurilor din Găvana 2, faimoasă pentru sesiunile lungi de Diablo II." },
-        //    { nume: "EuroNet Spitalul Județean", Coordonate: { lat: 44.871155, lng: 24.847167 }, zona: "Zona Spitalului / Coborâre", descriere: "Coordonate la intersecția străzii spitalului cu Bulevardul Nicolae Bălcescu, chiar la coborârea spre Nord." },
-        //    { nume: "AsNet Găvana 1", Coordonate: { lat: 44.871200, lng: 24.844800 }, zona: "Găvana 1 / Interior", descriere: "Sală mică poziționată stabil în nucleul interior al blocurilor din Găvana 1, în spatele liniei principale de la stradă." },
-        //    { nume: "SpeedNet Nicolae Bălcescu", Coordonate: { lat: 44.869100, lng: 24.850500 }, zona: "Bulevardul Nicolae Bălcescu / Urcare", descriere: "Poziționată la parterul blocurilor turn din zona de urcare dinspre Nord, unde începe panta spre cartier." },
-        //    { nume: "Club 2000 (Net2000)", Coordonate: { lat: 44.866100, lng: 24.851500 }, zona: "Complexul Nord (Granița Găvana)", descriere: "Rămâne fixată pe clădirea comercială centrală din Complexul Nord, nodul clasic de chiul de la ore pentru chat pe mIRC." },
-        //    { nume: "Turtles NetCafé", Coordonate: { lat: 44.857200, lng: 24.869100 }, zona: "Centru / Zona Pasaj", descriere: "Poziție stabilă în zona pietonală din Centru, epicentrul comunității mIRC și al adunărilor canalului #pitesti." },
-        //    { nume: "Săgeata (The Arrow)", Coordonate: { lat: 44.858400, lng: 24.867500 }, zona: "Centru / În spatele Teatrului Davila", descriere: "Poziționată chiar în spatele clădirii Teatrului Alexandru Davila, templul piteștean al Counter-Strike-ului 1.5." },
-        //    { nume: "Target Gaming Lounge", Coordonate: { lat: 44.861100, lng: 24.863200 }, zona: "Bulevardul Republicii / Zona Mobilă", descriere: "Localizată pe Republicii în zona Mobilă, configurată special pentru meciuri competitive 5v5 cu mouse-uri optice." },
-        //    { nume: "Escape Internet & Games", Coordonate: { lat: 44.853200, lng: 24.878500 }, zona: "Calea București / Zona ICIL", descriere: "Amplasată pe Calea București, în nodul fostului ICIL, renumită pentru pachetele de noapte masive." },
-        //    { nume: "Matrix Net", Coordonate: { lat: 44.851500, lng: 24.882100 }, zona: "Calea București / Spitalul Militar", descriere: "Poziționată aproape de Spitalul Militar, hub istoric pentru jucătorii de strategii în rețea (StarCraft, Warcraft)." }
-        //];
-
-        function initMapCallback() { window.dispatchEvent(new Event('GoogleMapsGata')); }
-        
-        (function() {
-            const script = document.createElement('script');
-            // script.src = `https://googleapis.com{GOOGLE_MAPS_API_KEY}&callback=initMapCallback&loading=async`;
-            script.src = "https://maps.googleapis.com/maps/api/js?key="+GOOGLE_MAPS_API_KEY+"&callback=initMapCallback&loading=async";
-            script.defer = true;
-            document.head.appendChild(script);
-        })();
-
-        window.addEventListener('GoogleMapsGata', () => {
-            const map = new google.maps.Map(document.getElementById("map"), {
-                center: { lat: 44.8759, lng: 24.8452 }, 
-                zoom: 14,
-                styles: [
-                    { "elementType": "geometry", "stylers": [{ "color": "#1b1b1b" }] },
-                    { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] },
-                    // REPARAȚIE TEXT: Am eliminat conturul gros și am lăsat doar fontul curat
-                    { "elementType": "labels.text.fill", "stylers": [{ "color": "#00ff66" }] },
-                    { "elementType": "labels.text.stroke", "stylers": [{ "visibility": "off" }] }, 
-                    { "featureType": "road", "elementType": "geometry.fill", "stylers": [{ "color": "#2a2a2a" }] },
-                    { "featureType": "water", "elementType": "geometry.fill", "stylers": [{ "color": "#050505" }] }
-                ]
-
-            });
-            const infoWindow = new google.maps.InfoWindow();
-            const listaContainer = document.getElementById("lista-locatii");
-            let markereActive = [];
-            // Continuare script index.html din Blocul 1
-            function adaugaPunctPeEcran(loc) {
-                const marker = new google.maps.Marker({ position: loc.Coordonate, map: map, title: loc.nume });
-                markereActive.push(marker);
-
-                const popupContinut = `<div class="popup-continut"><h3>${loc.nume}</h3><p><strong>Zona:</strong> ${loc.zona}</p><p>${loc.descriere}</p></div>`;
-                marker.addListener("click", () => { infoWindow.setContent(popupContinut); infoWindow.open(map, marker); });
-
-                const item = document.createElement("div");
-                item.className = "locatie-item";
-                item.innerHTML = `<div class="locatie-name">${loc.nume}</div><div class="locatie-detalii">📍 ${loc.zona}</div>`;
-                item.addEventListener("click", () => { map.setZoom(16); map.setCenter(loc.Coordonate); infoWindow.setContent(popupContinut); infoWindow.open(map, marker); });
-                listaContainer.appendChild(item);
-            }
-
-            db.collection("locatii").onSnapshot((snapshot) => {
-                markereActive.forEach(m => m.setMap(null));
-                markereActive = [];
-                listaContainer.innerHTML = "";
-                locatiiInitiale.forEach(loc => adaugaPunctPeEcran(loc));
-                snapshot.forEach((doc) => {
-                    const locDinCloud = doc.data();
-                    if(!locatiiInitiale.some(l => l.nume.toLowerCase() === locDinCloud.nume.toLowerCase())) {
-                        adaugaPunctPeEcran(locDinCloud);
-                    }
-                });
-            });
-
-            map.addListener("click", (e) => {
-                const coordonate = e.latLng.toJSON();
-                document.getElementById("form-lat").value = coordonate.lat;
-                document.getElementById("form-lng").value = coordonate.lng;
-                document.getElementById("form-container").style.display = "block";
-                document.getElementById("form-nume").focus();
-            });
-
-            document.getElementById("cafe-form").addEventListener("submit", (e) => {
-                e.preventDefault();
-                const raspunsAntiBot = document.getElementById("form-antibot").value.trim().toLowerCase();
-                if (raspunsAntiBot !== "mirc") { alert("Răspuns greșit!"); return; }
-
-                const nouDocument = {
-                    nume: document.getElementById("form-nume").value,
-                    zona: document.getElementById("form-zona").value,
-                    descriere: document.getElementById("form-descriere").value,
-                    Coordonate: { lat: parseFloat(document.getElementById("form-lat").value), lng: parseFloat(document.getElementById("form-lng").value) }
-                };
-
-                db.collection("locatii").add(nouDocument)
-                    .then(() => { document.getElementById("cafe-form").reset(); document.getElementById("form-container").style.display = "none"; })
-                    .catch((err) => { alert("Eroare: " + err.message); });
-            });
-        });
-        // Funcție globală centralizată pentru închiderea sigură a formularului
-function inchideFormularLocatie() {
-    const formular = document.getElementById("cafe-form");
-    const container = document.getElementById("form-container");
-    
-    if (formular && container) {
-        formular.reset();
-        container.style.display = "none";
-    }
-}
-
-// Înregistrare ascultător pe butonul Anulează (Garantat stabil în namespace-ul global)
-const btnAnuleaza = document.getElementById("btn-anuleaza");
-if (btnAnuleaza) {
-    btnAnuleaza.replaceWith(btnAnuleaza.cloneNode(true)); // Curățăm eventuale legături parazite
-    document.getElementById("btn-anuleaza").addEventListener("click", (e) => {
-        e.preventDefault();
-        inchideFormularLocatie();
-    });
-}
-
-// Înregistrare ascultător pentru tasta Escape (Oprește propagarea evenimentului în hărți)
-window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" || e.keyCode === 27) {
-        inchideFormularLocatie();
-    }
-});
-
-    </script>
-</body>
+    <div id="sidebar">
+      <h1>NetCafé Pitești</h1>
+      <p class="subtitle">
+        Dă click stânga pe hartă pentru a adăuga o noua sală.
+      </p>
+      <div id="form-container">
+        <h2>Adaugă o sală</h2>
+        <form id="cafe-form">
+          <input type="hidden" id="form-lat" />
+          <input type="hidden" id="form-lng" />
+          <div class="form-group">
+            <label>Numele Sălii</label>
+            <input type="text" id="form-nume" required />
+          </div>
+          <div class="form-group">
+            <label>Zona / Adresa</label>
+            <input type="text" id="form-zona" required />
+          </div>
+          <div class="form-group">
+            <label>Descriere</label>
+            <textarea id="form-descriere" rows="3" required></textarea>
+          </div>
+          <div class="form-group">
+            <label style="color: #00ff00; font-weight: bold"
+              >Securitate: Program chat anii 2000?</label
+            >
+            <input
+              type="text"
+              id="form-antibot"
+              placeholder="4 litere"
+              required
+            />
+          </div>
+          <button type="submit">Trimite</button>
+          <button
+            type="button"
+            id="btn-anuleaza"
+            style="background: #444; color: #fff; margin-top: 8px"
+          >
+            Anulează
+          </button>
+        </form>
+      </div>
+      <div id="lista-locatii"></div>
+    </div>
+    <div class="mirc-popup-title">
+      <span id="popup-title-text">#pitesti▶</span>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    <script src="/js/app.js"></script>
+  </body>
 </html>
