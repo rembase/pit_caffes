@@ -64,7 +64,7 @@ if (isLocalhost) {
   });
 } else {
   appCheckProvider = new ReCaptchaEnterpriseProvider(
-    "6Leqv6AtAAAAAAa8-pHb1vqn6Q1FtRkt9C7CNdrg",
+    "6LeSQaItAAAAAAFmW7msBBy-zAbV3a-T5FENfRif",
   );
 }
 
