@@ -155,6 +155,27 @@ button:active {
   color: #fff;
 }
 
+.locatie-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.btn-delete-locatie {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  min-width: 22px;
+  line-height: 1.2;
+  background: #660000;
+  color: #fff;
+  border-color: #ff8080 #220000 #220000 #ff8080;
+}
+
+.btn-delete-locatie:hover {
+  background: #aa0000;
+}
+
 .locatie-name {
   font-weight: normal;
   color: #ffffff;

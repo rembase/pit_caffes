@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "storage:orphans": "node tools/find-orphaned-images.mjs",
+    "storage:delete-orphans": "node tools/find-orphaned-images.mjs --delete",
+    "storage:delete-orphans:yes": "node tools/find-orphaned-images.mjs --delete --yes"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.3.0"
+  }
+}

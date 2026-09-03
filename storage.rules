@@ -1,0 +1,13 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /imagini/{fileName} {
+      allow read: if true;
+      allow create, update: if request.app != null
+        && request.resource.size <= 600 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if request.app != null;
+    }
+  }
+}

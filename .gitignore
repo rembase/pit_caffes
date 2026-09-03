@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Local Firebase/admin secrets
+secrets/
+*.service-account.json
+*firebase-adminsdk*.json
+*.private-key.json
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Logs and local caches
+*.log
+npm-debug.log*
+.firebase/
+.cache/
+
+# Accidental local scratch files
+[{]
+Pregătit

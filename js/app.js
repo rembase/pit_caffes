@@ -2,31 +2,30 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import {
   initializeAppCheck,
   ReCaptchaEnterpriseProvider,
-  CustomProvider,
+  getToken,
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app-check.js";
 import {
   getFirestore,
   collection,
   onSnapshot,
   addDoc,
+  deleteDoc,
+  doc,
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import {
   getStorage,
   ref,
   uploadBytes,
   getDownloadURL,
+  deleteObject,
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
-// Activează modul Debug doar dacă ești pe localhost
-if (
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1"
-) {
-  self.FIREBASE_APPCHECK_EXECUTE_IN_GLOBAL_SCOPE = true;
-  self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-}
-
 const GOOGLE_MAPS_API_KEY = "AIzaSyDBiXqRM3nZFu702ejO1M1qHv0HN4sTpo4";
+const LOCALHOST_APPCHECK_DEBUG_TOKEN = "";
+const tokenDebugLocal =
+  LOCALHOST_APPCHECK_DEBUG_TOKEN ||
+  window.localStorage.getItem("firebaseAppCheckDebugToken") ||
+  "";
 const firebaseConfig = {
   apiKey: "AIzaSyBaBMM59IHHEFGcTmcOcTAsmgonScH0F_8",
   authDomain: "pitesti-netcafes.firebaseapp.com",
@@ -43,35 +42,55 @@ const app = initializeApp(firebaseConfig);
 
 // 1. Verificăm dacă suntem pe localhost
 const isLocalhost = Boolean(
+  window.location.protocol === "file:" ||
+    window.location.hostname === "" ||
   window.location.hostname === "localhost" ||
-  window.location.hostname === "[::1]" ||
-  window.location.hostname.match(
-    /^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/,
-  ),
+    window.location.hostname === "[::1]" ||
+    window.location.hostname.match(
+      /^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/
+    )
 );
 
-// 2. Comutăm provider-ul pentru App Check în funcție de mediu
-let appCheckProvider;
-
-if (isLocalhost) {
-  self.FIREBASE_APPCHECK_EXECUTE_IN_SIMULATED_ENVIRONMENT = true;
-  appCheckProvider = new CustomProvider({
-    getToken: () =>
-      Promise.resolve({
-        token: "DEBUG_TOKEN",
-        expireTimeMillis: Date.now() + 60 * 60 * 1000,
-      }),
-  });
-} else {
-  appCheckProvider = new ReCaptchaEnterpriseProvider(
-    "6LeSQaItAAAAAAFmW7msBBy-zAbV3a-T5FENfRif",
-  );
+if (tokenDebugLocal.trim().length > 0) {
+  globalThis.FIREBASE_APPCHECK_DEBUG_TOKEN = tokenDebugLocal;
+  self.FIREBASE_APPCHECK_DEBUG_TOKEN = tokenDebugLocal;
+  window.FIREBASE_APPCHECK_DEBUG_TOKEN = tokenDebugLocal;
+  console.info("Firebase App Check debug token activ.");
 }
 
+const deleteLocalActiv = isLocalhost || tokenDebugLocal.trim().length > 0;
+
 const appCheck = initializeAppCheck(app, {
-  provider: appCheckProvider,
+  provider: new ReCaptchaEnterpriseProvider(
+    "6LeSQaItAAAAAAFmW7msBBy-zAbV3a-T5FENfRif"
+  ),
   isTokenAutoRefreshEnabled: true,
 });
+const tokenAppCheck = getToken(appCheck).catch((err) => {
+  console.error("Tokenul Firebase App Check nu a putut fi obținut:", err);
+  throw new Error(
+    "Validarea App Check pentru upload a eșuat. Verifică debug token-ul de localhost în Firebase Console."
+  );
+});
+
+async function verificaAppCheckPentruUpload() {
+  try {
+    const appCheckToken = await getToken(appCheck, true);
+    if (!appCheckToken?.token) {
+      throw new Error("Firebase App Check nu a returnat niciun token.");
+    }
+
+    console.info("Firebase App Check token obținut pentru upload.", {
+      local: isLocalhost,
+      tokenPreview: `${appCheckToken.token.slice(0, 12)}...`,
+    });
+  } catch (err) {
+    console.error("Firebase App Check upload check a eșuat:", err);
+    throw new Error(
+      `Validarea App Check pentru upload a eșuat înainte de Storage: ${err.message}`,
+    );
+  }
+}
 
 const db = getFirestore(app);
 const storage = getStorage(app);
@@ -120,6 +139,42 @@ window.addEventListener("GoogleMapsGata", () => {
 
   const listaContainer = document.getElementById("lista-locatii");
   let markereActive = [];
+
+  async function stergeLocatie(loc) {
+    if (!deleteLocalActiv) {
+      alert("Ștergerea este disponibilă doar local, cu debug token configurat.");
+      return;
+    }
+
+    if (tokenDebugLocal.trim().length === 0) {
+      const tokenNou = prompt("Introdu Firebase App Check debug token pentru ștergere:");
+      if (!tokenNou) return;
+
+      window.localStorage.setItem("firebaseAppCheckDebugToken", tokenNou.trim());
+      alert("Token salvat local. Pagina se reîncarcă, apoi poți apăsa din nou pe X.");
+      window.location.reload();
+      return;
+    }
+
+    const confirma = confirm(`Ștergi definitiv "${loc.nume || "această locație"}"?`);
+    if (!confirma) return;
+
+    try {
+      await tokenAppCheck;
+
+      if (loc.imagine) {
+        try {
+          await deleteObject(ref(storage, loc.imagine));
+        } catch (err) {
+          console.warn("Poza nu a putut fi ștearsă din Storage:", err);
+        }
+      }
+
+      await deleteDoc(doc(db, "locatii", loc.id));
+    } catch (err) {
+      alert("Eroare la ștergere: " + err.message);
+    }
+  }
 
   function adaugaPunctPeEcran(loc) {
     // 1. Validare obiect și coordonate
@@ -207,7 +262,7 @@ window.addEventListener("GoogleMapsGata", () => {
         if (!proiectie) return;
 
         const pozitiePixeli = proiectie.fromLatLngToDivPixel(
-          new google.maps.LatLng(pozitieValidata),
+          new google.maps.LatLng(pozitieValidata)
         );
         const inaltimeFereastra = this.div.offsetHeight;
         const offsetVertical = pozitiePixeli.y - inaltimeFereastra - 42;
@@ -261,9 +316,25 @@ window.addEventListener("GoogleMapsGata", () => {
         : "";
 
       item.innerHTML = `
-      <div>${htmlSimbol}<span class="locatie-name" style="color:${culoareNume};">${numeText}</span></div>
+      <div class="locatie-row">
+        <span>${htmlSimbol}<span class="locatie-name" style="color:${culoareNume};">${numeText}</span></span>
+        ${
+          deleteLocalActiv
+            ? '<button class="btn-delete-locatie" type="button" title="Șterge locația">X</button>'
+            : ""
+        }
+      </div>
       <div class="locatie-detalii" style="margin-top:2px; padding-left:12px;">📍 ${zonaText}</div>
     `;
+
+      const btnDelete = item.querySelector(".btn-delete-locatie");
+      if (btnDelete) {
+        btnDelete.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          stergeLocatie(loc);
+        });
+      }
 
       item.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -293,7 +364,7 @@ window.addEventListener("GoogleMapsGata", () => {
 
     let toateLocatiile = [];
     snapshot.forEach((doc) => {
-      toateLocatiile.push(doc.data());
+      toateLocatiile.push({ id: doc.id, ...doc.data() });
     });
 
     toateLocatiile.sort((a, b) => {
@@ -337,7 +408,7 @@ window.addEventListener("GoogleMapsGata", () => {
     toateLocatiile.forEach((loc) => {
       if (
         !locatiiInitiale.some(
-          (l) => l.nume.toLowerCase() === loc.nume.toLowerCase(),
+          (l) => l.nume.toLowerCase() === loc.nume.toLowerCase()
         )
       ) {
         adaugaPunctPeEcran(loc);
@@ -386,7 +457,7 @@ window.addEventListener("GoogleMapsGata", () => {
 
       if (!nume || !zona || isNaN(lat) || isNaN(lng)) {
         alert(
-          "Vă rugăm să completați toate câmpurile obligatorii cu date valide!",
+          "Vă rugăm să completați toate câmpurile obligatorii cu date valide!"
         );
         return;
       }
@@ -412,6 +483,9 @@ window.addEventListener("GoogleMapsGata", () => {
 
         // 4. Procesare & Compresie Imagine
         if (fisierOriginal) {
+          await tokenAppCheck;
+          await verificaAppCheckPentruUpload();
+
           const pozaProcesata = await new Promise((resolve, reject) => {
             const img = new Image();
             const objectUrl = URL.createObjectURL(fisierOriginal);
@@ -449,12 +523,12 @@ window.addEventListener("GoogleMapsGata", () => {
                   else
                     reject(
                       new Error(
-                        "A apărut o eroare la generarea fișierului compresat.",
-                      ),
+                        "A apărut o eroare la generarea fișierului compresat."
+                      )
                     );
                 },
                 "image/jpeg",
-                0.75,
+                0.75
               );
             };
 
@@ -467,7 +541,7 @@ window.addEventListener("GoogleMapsGata", () => {
           // Verificare dimensiune maximă 600KB
           if (pozaProcesata.size > 614400) {
             alert(
-              "Imaginea este prea complexă și depășește limita de 600KB chiar și după optimizare!",
+              "Imaginea este prea complexă și depășește limita de 600KB chiar și după optimizare!"
             );
             return; // Trece automat prin blocul 'finally' pentru a re-activa butonul
           }
