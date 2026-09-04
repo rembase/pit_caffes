@@ -8,62 +8,133 @@
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
-    <!-- Container Unic pentru Hartă -->
-    <div id="map"></div>
+    <div id="app-shell">
+      <aside id="left-panel" class="mirc-window">
+        <div class="window-title">#pitesti-netcafes / harta</div>
+        <div id="map"></div>
+        <div class="panel-heading">/names #sali</div>
+        <div id="lista-locatii"></div>
+      </aside>
+      <div id="left-resizer" role="separator" aria-label="Redimensionează harta" aria-orientation="vertical"></div>
 
-    <!-- Sidebar-ul din Dreapta -->
-    <div id="sidebar">
-      <h1>NetCafé Pitești</h1>
-      <p class="subtitle">
-        Dă click stânga pe hartă pentru a adăuga o nouă sală.
-      </p>
-      <div id="form-container">
-        <h2>Adaugă o sală</h2>
-        <form id="cafe-form">
-          <input type="hidden" id="form-lat" />
-          <input type="hidden" id="form-lng" />
-          <div class="form-group">
-            <label>Numele Sălii</label>
-            <input type="text" id="form-nume" required />
+      <main id="blog-panel" class="mirc-window">
+        <div class="window-title">#amintiri / blog</div>
+        <section class="hero-log">
+          <p><span class="time">[1995-2005]</span> <span class="nick">*system*</span> arhiva vie a salilor de net din Pitesti</p>
+          <p><span class="time">[azi]</span> <span class="nick">&lt;vizitator&gt;</span> lasa o locatie, o poza, o poveste. Poate cineva isi aminteste nick-ul tau.</p>
+        </section>
+        <section id="blog-feed" aria-live="polite"></section>
+      </main>
+      <div id="right-resizer" role="separator" aria-label="Redimensionează formularul" aria-orientation="vertical"></div>
+
+      <aside id="right-panel" class="mirc-window">
+        <div class="window-title">/ident + /submit</div>
+        <section id="auth-panel">
+          <div id="auth-logged-out">
+            <p class="auth-line">
+              <span class="nick">&lt;guest&gt;</span> intră cu Google ca să-ți păstrezi nickname-ul vechi.
+            </p>
+            <button type="button" id="btn-google-login">Login cu Google</button>
           </div>
-          <div class="form-group">
-            <label>Zona / Adresa</label>
-            <input type="text" id="form-zona" required />
+          <div id="auth-logged-in" hidden>
+            <p class="auth-line">
+              <span class="nick" id="auth-display-name">&lt;nick&gt;</span>
+              <button type="button" id="btn-google-logout">Logout</button>
+            </p>
+            <details class="right-section">
+              <summary>/profile settings</summary>
+              <div class="form-group">
+                <label>Nickname vechi</label>
+                <input type="text" id="profile-nickname" maxlength="32" placeholder="ex: r0bY" />
+              </div>
+              <div class="form-group">
+                <label>Ani activi</label>
+                <input type="text" id="profile-years" maxlength="32" placeholder="ex: 2000-2003" />
+              </div>
+              <div class="form-group">
+                <label>Jocuri</label>
+                <input type="text" id="profile-games" maxlength="120" placeholder="CS 1.5, Red Alert 2" />
+              </div>
+              <div class="form-group">
+                <label>Contact privat opțional</label>
+                <input type="text" id="profile-contact" maxlength="120" placeholder="email / discord / facebook" />
+              </div>
+              <button type="button" id="btn-save-profile">Salvează profil</button>
+            </details>
           </div>
-          <div class="form-group">
-            <label>Descriere</label>
-            <textarea id="form-descriere" rows="3" required></textarea>
-          </div>
-          <div class="form-group">
-            <label style="color: #00ff00">Fotografie Sală (Alege fișier)</label>
-            <input type="file" id="form-imagine" accept="image/*" />
-          </div>
-          <div class="form-group">
-            <label style="color: #00ff00; font-weight: bold"
-              >Securitate: Program chat anii 2000?</label
+        </section>
+        <details id="form-container" class="right-section">
+          <summary>/submit locatie</summary>
+          <p class="subtitle">
+            Click pe hartă pentru coordonate, apoi completează formularul.
+          </p>
+          <form id="cafe-form">
+            <input type="hidden" id="form-lat" />
+            <input type="hidden" id="form-lng" />
+            <div class="form-group">
+              <label>Numele Sălii</label>
+              <input type="text" id="form-nume" required />
+            </div>
+            <div class="form-group">
+              <label>Zona / Adresa</label>
+              <input type="text" id="form-zona" required />
+            </div>
+            <div class="form-group">
+              <label>Status mIRC</label>
+              <select id="form-mirc-role">
+                <option value="">normal</option>
+                <option value="voice">+ voice</option>
+                <option value="op">@ operator</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Descriere</label>
+              <textarea id="form-descriere" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+              <label style="color: #00ff00">Fotografie Sală (Alege fișier)</label>
+              <input type="file" id="form-imagine" accept="image/*" />
+            </div>
+            <div class="form-group">
+              <label style="color: #00ff00; font-weight: bold"
+                >Securitate: Program chat anii 2000?</label
+              >
+              <input
+                type="text"
+                id="form-antibot"
+                placeholder="4 litere"
+                required
+              />
+            </div>
+            <button type="submit">Trimite</button>
+            <button
+              type="button"
+              id="btn-anuleaza"
+              style="background: #444; color: #fff; margin-top: 8px"
             >
-            <input
-              type="text"
-              id="form-antibot"
-              placeholder="4 litere"
-              required
-            />
+              Anulează
+            </button>
+          </form>
+        </details>
+        <details id="inbox-panel" class="right-section" hidden>
+          <summary>/query inbox</summary>
+          <div id="conversation-list">
+            <p class="empty-state">Nicio conversație încă.</p>
           </div>
-          <button type="submit">Trimite</button>
-          <button
-            type="button"
-            id="btn-anuleaza"
-            style="background: #444; color: #fff; margin-top: 8px"
-          >
-            Anulează
-          </button>
-        </form>
-      </div>
-      <div id="lista-locatii"></div>
+          <div id="conversation-thread" hidden>
+            <div class="conversation-title">
+              <span id="conversation-with">/query</span>
+              <button type="button" id="btn-close-conversation">X</button>
+            </div>
+            <div id="message-list"></div>
+            <form id="message-form">
+              <textarea id="message-input" rows="3" maxlength="1000" placeholder="scrie mesaj..."></textarea>
+              <button type="submit">Trimite</button>
+            </form>
+          </div>
+        </details>
+      </aside>
     </div>
-
-    <!-- Butonul Flotant de Toggle -->
-    <div id="sidebar-toggle-btn">#pitesti ▶</div>
 
     <!-- Scriptul Principal JS -->
     <script defer type="module" src="js/app.js"></script>
